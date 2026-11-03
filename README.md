@@ -10,6 +10,7 @@ This package contains **code only**. No challenge data, blinded predictions, fit
 | Public binary auxiliary features and regression | `train_regression.py`, `infer_regression.py` | Scaffold OOF LightGBM member with nested, binary-only ChEMBL/PubChem probabilities; trains and predicts from user-supplied inputs. |
 | Interval-censored local metric and frozen stress | `proxy.py` | Local assumed ST-RAE denominator and fixed CYP2D6 shift; **not the official scorer**. |
 | Aggregate-score shift scenarios and fixed postprocessing | `shift_inference.py`, `recalibrate.py` | Conditional inverse model and the exact frozen `reg_v32` mild coefficients. |
+| File-free teaching demo | `shift_inference_demo.py` | Synthetic endpoint aggregates, both shift signs, a mild monotone adjustment, and a synthetic-only check. |
 | TDI screening and positive-only decision | `train_tdi.py`, `infer_tdi.py`, `tdi_rules.py` | Nested official-screen probabilities, two LightGBM members, and guarded positive-only rule. |
 | Frozen historical configuration snapshots | `regression_plan.json`, `tdi_policy.json` | Audit the original member/search settings; compact trainers have their own explicit parameters. |
 
@@ -47,6 +48,16 @@ python recalibrate.py --predictions /path/reg_v30_predictions.csv --out /tmp/reg
 ```
 
 The recalibration consumes no labels. Its coefficients are frozen in source; running the scenario solver is for audit and **does not silently retune** them.
+
+## How to run the demo
+
+From `release/`, after installing `requirements.txt`, run:
+
+```bash
+python shift_inference_demo.py
+```
+
+The demo generates one synthetic endpoint's prediction distribution and calculates public-like aggregate MAE, R², and Spearman from a declared toy model. It passes only those aggregates and the predictions to the same conditional solver used above, prints **both** compatible shift directions, chooses the negative branch as a stated illustration, and applies a mild positive-scale recalibration. Synthetic labels are generated only for a post-inference check. No competition data, prediction file, fitted model, or historical `reg_v32` coefficient is read or included. The printed MAE check is a toy outcome, not a challenge result or a calibration guarantee.
 
 ## Reproduce the compact TDI path
 
