@@ -1,0 +1,58 @@
+# OpenADMET CYP Blind Challenge — Innovation in ML Method Report
+
+**Author:** zhome. **Reported artifacts:** direct inhibition `reg_v32` mild; time-dependent inhibition (TDI) `tdi_v22` dual_add05.
+
+## Summary of what is novel here
+
+We treated CYP prediction as a coupled problem of **censored evaluation, distribution shift, and guarded decisions**. Published *endpoint-level* Live metrics constrained explicit scenarios for the hidden target distribution; these scenarios motivated a monotone mean/scale recalibration of two regression endpoints without retraining or seeing hidden labels. For development, we built an interval-aware ST-RAE proxy and a fixed shifted-label stress proxy as two candidate-promotion gates. For TDI, nested out-of-fold screening probabilities informed a **positive-only** update to a frozen classifier, subject to recall, MCC, addition-budget, and call-rate guards. Public binary activity labels entered regression only as cross-fitted probability features, never as continuous pIC50 labels. The key empirical tension is reported plainly: the recalibration worsened both local proxies, yet its observed Live MA-ST-RAE improved from **0.7677** to **0.5743**. This is evidence for a particular Live evaluation population, alongside evidence that the local proxy missed its shift; it is not proof of general calibration or an uncertainty interval.
+
+## Data, representations, and auxiliary signal
+
+Direct inhibition predicts pIC50 for CYP1A2, CYP2C9, CYP2D6, and CYP3A4. TDI predicts binary CYP2D6 and CYP3A4 labels. Official training measurements and regression credible intervals, official TDI labels, and official single-concentration screening assays were used. The 750 blinded molecules provided structures without outcomes. The selected regression lineage used LightGBM models with Morgan/Avalon/ErG fingerprints and RDKit descriptors, including endpoint-specific and shared members. The `reg_v30` auxiliary member used radius-2 Morgan 256-bit fingerprints, eight descriptors, and two probabilities from public ChEMBL/PubChem **binary** CYP activity classifiers. Its chosen blend assigned that member weights **0.10** for CYP1A2 and **0.05** for CYP2D6 at centered scale **1.05**; CYP2C9/CYP3A4 stayed on their prior predictions. A shared multi-assay member was evaluated but not chosen. [Source: `reg_v30/REPORT.md`.](../reg_v30/REPORT.md)
+
+Binary labels transfer inhibition information without assuming that their assay thresholds or concentrations have the same numerical meaning as challenge pIC50. For regression evaluation fold *h*, held-out features came from a classifier excluding *h*; a regression training row in fold *j* received a classifier prediction excluding both *h* and *j*. Canonical molecules and Murcko scaffolds were excluded. **Only official challenge pIC50 values trained the continuous regressor.** The `reg_v30` five-seed local scaffold macro proxy moved **0.677409 → 0.677159** and its fixed stress macro **0.718999 → 0.718801**; these are small local improvements, not Live results. [Source: `reg_v30/REPORT.md`.](../reg_v30/REPORT.md)
+
+## Interval-aware evaluation and two promotion gates
+
+For prediction *p* and credible interval [*L*, *U*], our soft-threshold loss is `max(L-p, 0, p-U)`; predictions inside the interval incur zero loss. We divide the endpoint sum by the loss of a constant predictor at that evaluation set's target mean, then macro-average four endpoints. **The denominator is a documented local assumption**, because the complete official ST-RAE backend and scoring mask were not available. Local MA-ST-RAE is therefore a screening proxy, not a numerical reconstruction of the official score. [Source: `eval_v2/README.md`.](../eval_v2/README.md)
+
+Candidates were also tested on a frozen synthetic shift. CYP2D6 labels and interval limits were expanded **1.3-fold** around their mean, shifted **−0.5**, and the original low-activity quartile weighted **2**. The other three endpoints weighted their high-activity quartile **3**. Development candidates needed to improve both the scaffold-held-out proxy and this stress proxy under the frozen comparison. The stress is a sensitivity scenario, not an estimate of the hidden target distribution. Reusing folds across research rounds can favor them. [Sources: `reg_v32/REPORT.md`, `reg_v37/REPORT.md`.](../reg_v32/REPORT.md)
+
+## Leaderboard-constrained monotone recalibration
+
+The `reg_v30` Live MA-ST-RAE was **0.7677**, with CYP1A2 ST-RAE **0.9114** and CYP2D6 **1.1669**. Good ranking paired with high error suggested mislocated or underspread predictions. We combined published endpoint MAE, R², and Spearman with the empirical 750-prediction distribution. For standardized prediction `z=(p−μp)/sd(p)`, the assumed hidden target model was `y=μp+d+r·b·z+b·sqrt(1−r²)·ε`, where *d* is target mean offset, *b* target SD, and *ε* an independent unit-variance residual. We solved *r* from Spearman using empirical prediction ranks, then solved conventional MAE/R² moment equations separately on positive and negative *d* branches under alternative residual-tail shapes. Aggregate metrics **cannot identify the sign of the shift**, residual law, or official ST-RAE denominator. The inferred target distributions are conditional scenarios, not observed test labels or statistical confidence bounds. [Source: `reg_v32/REPORT.md`.](../reg_v32/REPORT.md)
+
+The selected mild action halved the proposed negative shift and scale expansion to reduce downside if the scenario was wrong. It applied `p′=mean(p)+s(p−mean(p))+δ`, with `(s,δ)=(1.391473,−0.419698)` for CYP1A2 and `(1.474552,−0.662590)` for CYP2D6. Both scales are positive, preserving within-endpoint ranks. CYP2C9/CYP3A4 stayed unchanged; no new regression model was trained and extreme predictions were not clipped. [Source: `reg_v32/REPORT.md`.](../reg_v32/REPORT.md)
+
+| Evidence, lower is better | `reg_v30` parent | `reg_v32` mild |
+| --- | ---: | ---: |
+| **Live** MA-ST-RAE | **0.7677** | **0.5743** |
+| Local scaffold macro proxy | **0.677159** | **0.953080** |
+| Fixed-shift macro proxy | **0.718801** | **0.744157** |
+
+The mild Live endpoint ST-RAE values were CYP1A2 **0.6495**, CYP2C9 **0.4803**, CYP2D6 **0.6551**, and CYP3A4 **0.5124**. The local folds came from the training distribution, so applying a blind-set-directed negative shift created error on those folds. The fixed stress moved CYP2D6 only partway toward the hypothesized shift and could not represent the hidden joint distribution of targets, residuals, and credible intervals. Both proxies rejected the action. Its Live gain is useful evidence, while this disagreement warns against treating a proxy or repeated Live feedback as an independent generalization test. [Sources: `reg_v32/REPORT.md`; mild Live endpoints recorded in `reg_v36/REPORT.md`.](../reg_v32/REPORT.md)
+
+## TDI: nested evidence and a positive-only rule
+
+The `tdi_v22` CYP2D6 model combined a structure-only LightGBM and a member augmented by official single-concentration probabilities for `log2fc_estimate < −1` and `< −2` plus their difference. Screening probabilities were fitted under nested fold, molecule, and scaffold exclusions. Each TDI member used **260 trees**, **15 leaves**, and positive-class weight **4.0**. Their within-batch percentile ranks were averaged. CYP3A4 calls stayed identical to `tdi_v14`. No external samples trained `tdi_v22`. [Source: `tdi_v22/REPORT.md`.](../tdi_v22/REPORT.md)
+
+Within each outer scaffold fold, a frozen inner-fold grid selected only rules that retained every baseline positive, added at most **5%** of the inner batch for the chosen `dual_add05` variant, met baseline recall, and strictly improved inner MCC. Otherwise it fell back to baseline. The unlabeled batch call rate was capped at **1.5×** inner prevalence; deployment required **0.5–1.5×** training prevalence. Three paired local seed comparisons improved CYP2D6 MCC from **0.218686/0.210702/0.203805** to **0.225722/0.230062/0.224534** and macro MCC from **0.314040/0.309897/0.309924** to **0.317559/0.319577/0.320288**. The deployment file called **131/750** CYP2D6 positives, only **two** above the frozen baseline. The recorded **Live macro MCC was 0.2736**, a separate measurement. The three seeds share folds and new member predictions and are not independent blind trials. [Sources: `tdi_v22/REPORT.md`; Live value recorded in `tdi_v23/REPORT.md`.](../tdi_v23/REPORT.md)
+
+## Honest negative results
+
+| Tested idea | Recorded **local** result | Decision |
+| --- | --- | --- |
+| `reg_v34` CheMeleon/Tab Caruana ensemble | Main candidate local/stress **1.230720 / 0.859325** versus mild **0.953080 / 0.744157** | Did not pass. |
+| `reg_v35` public-binary auxiliary-head Chemprop/Tab ensemble | Main candidate **1.229008 / 0.857701** versus mild **0.953080 / 0.744157**; D6 OOF Spearman **0.404013** | Did not pass despite encoder fine-tuning. |
+| `reg_v36` nested stack of `reg_v35` outputs | Main candidate **1.229266 / 0.857284** versus mild **0.953080 / 0.744157** | Did not pass. |
+| `reg_v37` four external binary probability features | Same-pipeline control **1.020285 / 0.913937**; augmented **1.023137 / 0.916795**, with **0/5** paired seed wins on both gates | Did not pass. This was a small public-binary fallback, **not** ADMET-AI v2 output. |
+| `tdi_v23` direct-filtered retraining | Main local macro MCC **0.279087** versus frozen baseline **0.319141** | Did not pass; cohort and rule both changed. |
+| `tdi_v24` structural-distance ranking | Main local macro MCC **0.285358** versus frozen baseline **0.319141** | Did not pass. |
+
+These experiments have differing local protocols; the table is an honest inventory, not a single benchmark or a set of Live scores. [Sources: `reg_v34_staged_20261030/REPORT.md`, `reg_v35/REPORT.md`, `reg_v36/REPORT.md`, `reg_v37/REPORT.md`, `tdi_v23/REPORT.md`, `tdi_v24/REPORT.md`.](../reg_v35/REPORT.md)
+
+## Context, reproducibility, and limits
+
+The [ASAP–Polaris–OpenADMET results](https://polarishub.io/competitions/asap-discovery/antiviral-drug-discovery-2025) and [ExpansionRx organizers' review](https://openadmet.ghost.io/lessons-learned-from-the-openadmet-expansionrx-blind-challenge/) emphasize endpoint-aware evaluation, meaningful splits, auxiliary data, and transparent methods. The [ASAP ADMET winning team's retrospective](https://www.inductive.bio/news/following-our-competition-win-we-explored-what-the-competition-results-tell-us-about-the-state-of-ml-for-drug-discovery) argues for task-relevant external data while finding mixed payoff from generic pretraining. The [PXR organizers](https://openadmet.org/blog/its-the-end-of-the-pxr-challenge-as-we-know-it-and-i-feel-fine/) explicitly separated a live analog set from the final hidden set. Our isolation and negative-result reporting align with that practice; leaderboard-constrained recalibration is more unusual and risks feedback overfit. [Past-challenge notes](../tool_scout/E_past_challenges.md) give the comparison.
+
+The [local release package](../release/README.md) includes executable feature, training/inference, proxy, recalibration, and TDI-rule code without challenge data, prediction files, or secrets. Exact reproduction of the historical fitted ensemble additionally needs its documented source lineage and official/public inputs; a fresh compact refit must not be presented as the same fitted artifact. We have no Live bootstrap interval for the regression change or blinded per-molecule TDI audit. **Code repository placeholder: CODE_REPO_URL.**

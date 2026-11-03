@@ -1,0 +1,9 @@
+{
+  "frozen_before_scoring": true,
+  "folds": "reg_v17 endpoint-specific scaffold folds; union of held-fold canonical SMILES and Murcko scaffolds excluded from all official auxiliary and external training",
+  "members": ["official_assay_shared", "external_binary_nested"],
+  "official_assay_shared": {"rounds": 120, "learning_rate": 0.04, "num_leaves": 15, "min_data_in_leaf": 35, "lambda_l2": 12},
+  "external_classifier": {"rounds": 75, "learning_rate": 0.055, "num_leaves": 15, "min_data_in_leaf": 80, "lambda_l2": 15},
+  "external_regressor": {"rounds": 180, "learning_rate": 0.04, "num_leaves": 15, "min_data_in_leaf": 30, "lambda_l2": 12},
+  "selection": {"member_options": ["official_assay_shared", "external_binary_nested", "equal_average"], "endpoint_weight_grid": [0, 0.05, 0.1, 0.2, 0.35], "calibration_scale": [1.0, 1.05], "calibration_applies_to": "centered new member only", "strict_tolerance": 1e-9, "winner_order": ["local_plus_stress", "stress"]}
+}
